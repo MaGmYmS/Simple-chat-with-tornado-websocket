@@ -14,14 +14,20 @@ redis_client = aioredis.Redis()
 connected_clients = set()
 user_names = {}  # Сопоставление WebSocket соединения и имени пользователя
 
+# Ключ для хранения истории сообщений в Redis
+MESSAGE_HISTORY_KEY = "chat_history"
+
 
 class ChatWebSocketHandler(tornado.websocket.WebSocketHandler):
-    def open(self):
+    async def open(self):
         # При подключении добавляем клиента в список
         connected_clients.add(self)
         user_names[self] = "Какой-то выскочка"
         self.broadcast_user_list()
         logging.debug(f"Новый клиент подключился: {self}")
+
+        # Отправляем историю сообщений новому клиенту
+        await self.send_message_history()
 
     async def on_message(self, message):
         try:
@@ -29,10 +35,12 @@ class ChatWebSocketHandler(tornado.websocket.WebSocketHandler):
             data = json.loads(message)
             if "name" in data and "message" in data:
                 user_names[self] = data["name"]  # Обновляем имя пользователя
+                self.broadcast_user_list()  # Обновляем список пользователей
 
                 # Публикуем сообщение в Redis
                 chat_message = json.dumps({"name": data["name"], "message": data["message"]})
                 await redis_client.publish("chat_channel", chat_message)
+                await redis_client.rpush(MESSAGE_HISTORY_KEY, chat_message)
                 logging.debug(f"Получено сообщение от {data['name']}: {data['message']}")
             else:
                 logging.error(f"Неверный формат сообщения: {message}")
@@ -53,6 +61,14 @@ class ChatWebSocketHandler(tornado.websocket.WebSocketHandler):
         message = json.dumps({"type": "users", "users": user_list})
         for client in connected_clients:
             client.write_message(message)
+
+    async def send_message_history(self):
+        # Получаем историю сообщений из Redis
+        message_history = await redis_client.lrange(MESSAGE_HISTORY_KEY, 0, -1)
+        logging.debug(f"История сообщений: {message_history}")
+        for message in message_history:
+            message_str = message.decode('utf-8') if isinstance(message, bytes) else message
+            await self.write_message(message_str)
 
     def check_origin(self, origin):
         return True
