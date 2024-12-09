@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chat</title>
+    <style>
+        #messages {
+            list-style-type: none;
+            padding: 0;
+        }
+        #messages li {
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Chat</h1>
+    <ul id="messages"></ul>
+    <input id="messageInput" autocomplete="off"/>
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const ws = new WebSocket('ws://' + location.host + '/chat');
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === "users") {
+                // Обновление списка пользователей
+                const userList = document.getElementById('userList');
+                userList.innerHTML = '';
+                data.users.forEach(user => {
+                    const userElement = document.createElement('li');
+                    userElement.textContent = user;
+                    userList.appendChild(userElement);
+                });
+            } else {
+                const messageElement = document.createElement('li');
+                messageElement.textContent = `${data.name}: ${data.message}`;
+                messages.appendChild(messageElement);
+            }
+        };
+
+        function sendMessage() {
+            const message = messageInput.value;
+            const name = prompt("Enter your name:");
+            if (name && message) {
+                ws.send(JSON.stringify({ name: name, message: message }));
+                messageInput.value = '';
+            } else {
+                alert("Name and message cannot be empty");
+            }
+        }
+    </script>
+</body>
+</html>
