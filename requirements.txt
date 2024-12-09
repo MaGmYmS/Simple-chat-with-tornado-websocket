@@ -1,0 +1,2 @@
+tornado==6.2
+redis==4.3.4
