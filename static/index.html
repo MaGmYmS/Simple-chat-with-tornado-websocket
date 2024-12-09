@@ -27,6 +27,12 @@
         const messageInput = document.getElementById('messageInput');
         const ws = new WebSocket('ws://' + location.host + '/chat');
 
+        let userName = prompt("Введите ваше имя:");
+
+        ws.onopen = function() {
+            ws.send(JSON.stringify({ name: userName, message: "Пользователь подключился" }));
+        };
+
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
             if (data.type === "users") {
@@ -47,12 +53,11 @@
 
         function sendMessage() {
             const message = messageInput.value;
-            const name = prompt("Enter your name:");
-            if (name && message) {
-                ws.send(JSON.stringify({ name: name, message: message }));
+            if (message) {
+                ws.send(JSON.stringify({ name: userName, message: message }));
                 messageInput.value = '';
             } else {
-                alert("Name and message cannot be empty");
+                alert("Сообщение не может быть пустым");
             }
         }
     </script>

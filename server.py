@@ -1,15 +1,13 @@
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-import redis.asyncio as aioredis  # Используем асинхронный Redis клиент
+import redis.asyncio as aioredis
 import json
 import asyncio
 import logging
 
-# Настройка логирования
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Асинхронный клиент Redis
 redis_client = aioredis.Redis()
 
 # Список имён подключённых клиентов
@@ -23,7 +21,7 @@ class ChatWebSocketHandler(tornado.websocket.WebSocketHandler):
         connected_clients.add(self)
         user_names[self] = "Какой-то выскочка"
         self.broadcast_user_list()
-        logging.debug(f"New client connected: {self}")
+        logging.debug(f"Новый клиент подключился: {self}")
 
     async def on_message(self, message):
         try:
@@ -35,18 +33,18 @@ class ChatWebSocketHandler(tornado.websocket.WebSocketHandler):
                 # Публикуем сообщение в Redis
                 chat_message = json.dumps({"name": data["name"], "message": data["message"]})
                 await redis_client.publish("chat_channel", chat_message)
-                logging.debug(f"Received message from {data['name']}: {data['message']}")
+                logging.debug(f"Получено сообщение от {data['name']}: {data['message']}")
             else:
-                logging.error(f"Invalid message format: {message}")
+                logging.error(f"Неверный формат сообщения: {message}")
         except json.JSONDecodeError:
-            logging.error(f"Failed to decode JSON message: {message}")
+            logging.error(f"Ошибка декодирования JSON сообщения: {message}")
 
     def on_close(self):
         # При отключении удаляем клиента из списка
         connected_clients.remove(self)
         user_names.pop(self, None)
         self.broadcast_user_list()
-        logging.debug(f"Client disconnected: {self}")
+        logging.debug(f"Клиент отключился: {self}")
 
     @staticmethod
     def broadcast_user_list():
@@ -72,12 +70,12 @@ async def redis_listener():
             # Рассылаем сообщение всем подключённым клиентам
             for client in connected_clients:
                 await client.write_message(data)
-            logging.debug(f"Broadcasting message: {data}")
+            logging.debug(f"Рассылка сообщения: {data}")
 
 
 class IndexHandler(tornado.web.RequestHandler):
     def get(self):
-        logging.debug("Serving index.html")
+        logging.debug("Отправка index.html")
         self.render("static/index.html")
 
 
@@ -92,7 +90,7 @@ def create_app():
 if __name__ == "__main__":
     app = create_app()
     app.listen(8080)
-    print("Chat is available at http://localhost:8080")
+    print("Чат доступен по адресу http://localhost:8080")
 
     # Запуск Redis слушателя в асинхронном цикле
     loop = asyncio.get_event_loop()
